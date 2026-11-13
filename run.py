@@ -2,9 +2,11 @@ import sys
 import cv2
 import numpy as np
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, QTimer, pyqtSignal
 from ui.main_window import AACMainWindow
+from ui.calibration_widget import CalibrationOverlay
 from core.eye_tracker import DualModalityEyeTracker
+
 
 class GazeTrackingThread(QThread):
     gaze_updated = pyqtSignal(int, int, bool)
@@ -17,9 +19,6 @@ class GazeTrackingThread(QThread):
         self.running = True
         self.tracker = DualModalityEyeTracker()
 
-    def request_recalibration(self):
-        self.tracker.recalibrate()
-
     def open_camera(self):
         print("[Camera Init] Connecting directly to primary webcam...")
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -31,13 +30,15 @@ class GazeTrackingThread(QThread):
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_FPS, 30)
             return cap
+
         return None
 
     def run(self):
         cap = self.open_camera()
         if cap is None:
-            err_img = np.zeros((140, 200, 3), dtype=np.uint8)
-            cv2.putText(err_img, "Camera Blocked", (15, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            err_img = np.zeros((120, 180, 3), dtype=np.uint8)
+            cv2.putText(err_img, "Camera Blocked", (15, 65),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
             self.frame_updated.emit(err_img)
             return
 
@@ -65,6 +66,7 @@ class GazeTrackingThread(QThread):
         self.running = False
         self.wait()
 
+
 def main():
     app = QApplication(sys.argv)
     window = AACMainWindow()
@@ -77,11 +79,21 @@ def main():
     tracker_thread = GazeTrackingThread(screen_w, screen_h)
     tracker_thread.gaze_updated.connect(window.update_gaze_point)
     tracker_thread.frame_updated.connect(window.update_camera_preview)
-    window.recalibrate_requested.connect(tracker_thread.request_recalibration)
+
+    # 9-point calibration (runs at launch and on RE-CALIBRATE)
+    calib = CalibrationOverlay(tracker_thread.tracker, screen_w, screen_h)
+    calib.finished.connect(
+        lambda err: print(f"Calibration error: {err:.0f}px" if err else
+                          "Calibration failed - please try again")
+    )
+    window.recalibrate_requested.connect(calib.start)
+
     tracker_thread.start()
+    QTimer.singleShot(800, calib.start)   # auto-start calibration at launch
 
     app.aboutToQuit.connect(tracker_thread.stop)
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

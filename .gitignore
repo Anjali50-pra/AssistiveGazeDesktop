@@ -1,17 +1,25 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Virtual environments
+*.pyo
+.venv/
 venv/
 env/
-.venv/
+tts_env/
+.env
 
-# IDE / Editor settings
+# Editors / OS
 .vscode/
 .idea/
-
-# OS specific files
-.DS_Store
 Thumbs.db
+.DS_Store
+desktop.ini
+
+# Logs and personal calibration data
+*.log
+logs/
+
+# Large voice models (download separately, see README)
+models/
+*.onnx
+*.onnx.json
