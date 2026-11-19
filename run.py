@@ -80,16 +80,27 @@ def main():
     tracker_thread.gaze_updated.connect(window.update_gaze_point)
     tracker_thread.frame_updated.connect(window.update_camera_preview)
 
-    # 9-point calibration (runs at launch and on RE-CALIBRATE)
+    # 6-point calibration (runs at launch and on RE-CALIBRATE)
     calib = CalibrationOverlay(tracker_thread.tracker, screen_w, screen_h)
-    calib.finished.connect(
-        lambda err: print(f"Calibration error: {err:.0f}px" if err else
-                          "Calibration failed - please try again")
-    )
-    window.recalibrate_requested.connect(calib.start)
 
+    def start_calibration():
+        window.set_calibrating(True)      # window ignores gaze while the dots are shown
+        calib.start()
+
+    def calibration_done(acc):
+        if acc is not None:
+            print(f"Calibration accuracy: {acc * 100:.0f}%")
+        else:
+            print("Calibration failed - press C to try again")
+        window.set_calibrating(False)
+        window.after_calibration()        # first time: language cards. Later: back to the menu.
+
+    calib.finished.connect(calibration_done)
+    window.recalibrate_requested.connect(start_calibration)
+
+    window.set_calibrating(True)          # nothing is selectable until calibration has finished
     tracker_thread.start()
-    QTimer.singleShot(800, calib.start)   # auto-start calibration at launch
+    QTimer.singleShot(800, start_calibration)   # auto-start calibration at launch
 
     app.aboutToQuit.connect(tracker_thread.stop)
     sys.exit(app.exec())

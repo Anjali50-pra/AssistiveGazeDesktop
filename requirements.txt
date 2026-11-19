@@ -1,6 +1,5 @@
 PyQt6
-opencv-python
-mediapipe==0.10.9
-protobuf==3.20.3
-numpy
+opencv-python==4.10.0.84
+mediapipe==0.10.14
+numpy<2
 pyttsx3
